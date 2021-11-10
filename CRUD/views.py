@@ -1,44 +1,63 @@
 from django.shortcuts import render
 from rest_framework.response import Response
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
 from .models import Quote
 from .serializers import QuoteSerializer
+from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 
-# Create your views here.
+class QuotesView(APIView):
+    def get(self, request, format=None):
+        quotes = Quote.objects.all()
+        serializer = QuoteSerializer(quotes, many=True)
+        return Response(serializer.data)
 
-@api_view(['GET'])
-def QuoteList(request):
-    Quotes = Quote.objects.all()
-    serializer = QuoteSerializer(Quotes, many=True)
-    return Response(serializer.data)
+class QuoteDetail(APIView):
+    def get_object(self, pk):
+        try:
+            return Quote.objects.get(pk=pk)
+        except Quote.DoesNotExist:
+            raise Http404
 
-@api_view(['GET'])
-def QuoteDetail(request, pk):
-    quote = Quote.objects.get(id=pk)
-    serializer = QuoteSerializer(quote, many=False)
-    return Response(serializer.data)
+    def get(self, request, pk, format=None):
+        quote = self.get_object(pk)
+        serializer = QuoteSerializer(quote)
+        return Response(serializer.data)
 
-@api_view(['POST'])
-def QuoteCreate(requests):
-    serializer = QuoteSerializer(data=request.data)
+    def put(self, request, pk, format=None):
+        quote = self.get_object(pk)
+        serializer = QuoteSerializer(quote, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    if serializer.is_valid():
-        serializer.save()
+    def delete(self, request, format=None):
+        quote = self.get_object(pk)
+        quote.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-    return Response(serializer.data)
+    def post(self, request):
+        quote = request.data.get('quote')
 
-@api_view(['GET'])
-def QuoteUpdate(request, pk):
-    quote = Quote.objects.get(id=pk)
+        serializer = QuoteSerializer(data=quote)
+        if serializer.is_valid(raise_exception=True):
+            quote_saved = serializer.save()
 
-    serializer = QuoteSerializer(instance=quote, data=request.data)
+        return Response({"success":"quote '{}' created successfully".format(quote_saved.id)})
 
-    if serializer.is_valid():
-        serializer.save()
-    return Response(serializer.data)
-    
-@api_view(['DELETE'])
-def QuoteDelete(request, pk):
-    quote = Quote.objects.get(id=pk)
-    quote.delete()
 
+class CustomAuthToken(ObtainAuthToken):
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data,
+                                           context={'request':request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'token': token.key,
+            'user_id': user.pk,
+            'email' : user.email
+            })
