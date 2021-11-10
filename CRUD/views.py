@@ -14,7 +14,7 @@ def QuoteList(request):
 
 @api_view(['GET'])
 def QuoteDetail(request, pk):
-    quote = Quote.object.all(id=pk)
+    quote = Quote.objects.get(id=pk)
     serializer = QuoteSerializer(quote, many=False)
     return Response(serializer.data)
 
