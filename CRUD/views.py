@@ -5,15 +5,19 @@ from rest_framework.authtoken.models import Token
 from .models import Quote
 from .serializers import QuoteSerializer
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
 
 class QuotesView(APIView):
+    permission_classes = (IsAuthenticated,)
+
     def get(self, request, format=None):
         quotes = Quote.objects.all()
         serializer = QuoteSerializer(quotes, many=True)
         return Response(serializer.data)
 
 class QuoteDetail(APIView):
+    permission_classes = (IsAuthenticated,)
+
     def get_object(self, pk):
         try:
             return Quote.objects.get(pk=pk)
